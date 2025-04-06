@@ -56,3 +56,6 @@ yarn-debug.log*
 # Ignore Ruby version manager files
 .ruby-version
 .rbenv-vars
+
+# Ignore test files directory
+test_files/
