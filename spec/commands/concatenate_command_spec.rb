@@ -1,23 +1,25 @@
 require 'rails_helper'
-require 'fakefs/spec_helpers'
 
 RSpec.describe ConcatenateCommand do
-  include FakeFS::SpecHelpers
-
-  let(:test_dir) { '/test_files' }
-  let(:file1_path) { "#{test_dir}/source1.txt" }
-  let(:file2_path) { "#{test_dir}/source2.txt" }
-  let(:output_path) { "#{test_dir}/combined.txt" }
-
-  before do
-    FileUtils.mkdir_p(test_dir)
-    File.write(file1_path, "Content from file 1\n")
-    File.write(file2_path, "Content from file 2\n")
-  end
+  let(:file1_path) { './tmp/test/file1.txt' }
+  let(:file2_path) { './tmp/test/file2.txt' }
+  let(:output_path) { './tmp/test/output.txt' }
+  let(:file1_content) { "Content from file 1\n" }
+  let(:file2_content) { "Content from file 2\n" }
 
   describe '#execute' do
     context 'when files exist' do
+      before do
+        allow(File).to receive(:open).with(file1_path, 'r').and_yield(StringIO.new(file1_content))
+        allow(File).to receive(:open).with(file2_path, 'r').and_yield(StringIO.new(file2_content))
+        allow(File).to receive(:open).with(output_path, 'w').and_yield(StringIO.new)
+        allow(FileUtils).to receive(:mkdir_p)
+      end
+
       it 'successfully concatenates files' do
+        output = StringIO.new
+        allow(File).to receive(:open).with(output_path, 'w').and_yield(output)
+
         command = described_class.new(
           files: [ file1_path, file2_path ],
           output_path: output_path
@@ -26,10 +28,13 @@ RSpec.describe ConcatenateCommand do
         result = command.execute
 
         expect(result[:success]).to be true
-        expect(File.read(output_path)).to eq("Content from file 1\nContent from file 2\n")
+        expect(output.string).to eq(file1_content + file2_content)
       end
 
       it 'preserves file order' do
+        output = StringIO.new
+        allow(File).to receive(:open).with(output_path, 'w').and_yield(output)
+
         command = described_class.new(
           files: [ file2_path, file1_path ],
           output_path: output_path
@@ -38,11 +43,14 @@ RSpec.describe ConcatenateCommand do
         result = command.execute
 
         expect(result[:success]).to be true
-        expect(File.read(output_path)).to eq("Content from file 2\nContent from file 1\n")
+        expect(output.string).to eq(file2_content + file1_content)
       end
 
       it 'creates output directory if it does not exist' do
-        new_output_path = "#{test_dir}/new_dir/combined.txt"
+        new_output_path = './tmp/test/new_dir/output.txt'
+        output = StringIO.new
+        allow(File).to receive(:open).with(new_output_path, 'w').and_yield(output)
+
         command = described_class.new(
           files: [ file1_path ],
           output_path: new_output_path
@@ -51,14 +59,22 @@ RSpec.describe ConcatenateCommand do
         result = command.execute
 
         expect(result[:success]).to be true
-        expect(File.exist?(new_output_path)).to be true
+        expect(FileUtils).to have_received(:mkdir_p).with('./tmp/test/new_dir')
       end
     end
 
     context 'when input file does not exist' do
+      before do
+        allow(FileUtils).to receive(:mkdir_p)
+        allow(File).to receive(:open).with(output_path, 'w').and_yield(StringIO.new)
+      end
+
       it 'returns an error' do
+        allow(File).to receive(:open).with('./tmp/test/nonexistent.txt', 'r')
+          .and_raise(Errno::ENOENT.new("No such file or directory - ./tmp/test/nonexistent.txt"))
+
         command = described_class.new(
-          files: [ '/nonexistent.txt' ],
+          files: [ './tmp/test/nonexistent.txt' ],
           output_path: output_path
         )
 
@@ -69,8 +85,12 @@ RSpec.describe ConcatenateCommand do
       end
 
       it 'returns error when some files exist but others do not' do
+        allow(File).to receive(:open).with(file1_path, 'r').and_yield(StringIO.new(file1_content))
+        allow(File).to receive(:open).with('./tmp/test/nonexistent.txt', 'r')
+          .and_raise(Errno::ENOENT.new("No such file or directory - ./tmp/test/nonexistent.txt"))
+
         command = described_class.new(
-          files: [ file1_path, '/nonexistent.txt' ],
+          files: [ file1_path, './tmp/test/nonexistent.txt' ],
           output_path: output_path
         )
 
@@ -81,20 +101,23 @@ RSpec.describe ConcatenateCommand do
       end
     end
 
-    context 'when output directory does not exist and cannot be created' do
-      it 'returns an error' do
-        # Create a file where we want to create a directory
-        File.write("#{test_dir}/blocked_dir", "blocking file")
+    context 'when output directory cannot be created' do
+      before do
+        allow(FileUtils).to receive(:mkdir_p)
+          .with('./tmp/test/blocked_dir')
+          .and_raise(Errno::EACCES.new("Permission denied - ./tmp/test/blocked_dir"))
+      end
 
+      it 'returns an error' do
         command = described_class.new(
           files: [ file1_path ],
-          output_path: "#{test_dir}/blocked_dir/output.txt"
+          output_path: './tmp/test/blocked_dir/output.txt'
         )
 
         result = command.execute
 
         expect(result[:success]).to be false
-        expect(result[:error]).to include('No such file or directory')
+        expect(result[:error]).to include('Permission denied')
       end
     end
   end
