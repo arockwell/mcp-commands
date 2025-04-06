@@ -1,4 +1,7 @@
 class McpController < ApplicationController
+  skip_before_action :verify_authenticity_token
+  before_action :ensure_json_request
+
   def concatenate
     return render_bad_request if missing_required_params?
 
@@ -26,5 +29,10 @@ class McpController < ApplicationController
 
   def render_error(result)
     render json: result, status: :unprocessable_entity
+  end
+
+  def ensure_json_request
+    return if request.format.json?
+    render json: { error: "Only JSON requests are allowed" }, status: :not_acceptable
   end
 end
