@@ -61,4 +61,5 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
   gem "fakefs", require: "fakefs/safe"
+  gem "rspec-rails"
 end
