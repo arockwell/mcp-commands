@@ -23,5 +23,8 @@ module McpCommands
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # Disable web console middleware for API routes
+    config.middleware.use WebConsole::Middleware, only: %w[/]
   end
 end
