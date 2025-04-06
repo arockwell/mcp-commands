@@ -5,6 +5,7 @@ class ConcatenateCommand
   end
 
   def execute
+    FileUtils.mkdir_p(File.dirname(@output_path))
     File.open(@output_path, "w") do |output_file|
       @files.each do |file_path|
         File.open(file_path, "r") do |input_file|

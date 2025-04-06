@@ -1,5 +1,5 @@
 require 'rails_helper'
-require 'fakefs/safe'
+require 'fakefs/spec_helpers'
 
 RSpec.describe ConcatenateCommand do
   include FakeFS::SpecHelpers
