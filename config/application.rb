@@ -9,7 +9,7 @@ Bundler.require(*Rails.groups)
 module McpCommands
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.
-    config.load_defaults 8.0
+    config.load_defaults 7.1
 
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
@@ -23,5 +23,11 @@ module McpCommands
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # Disable web console middleware
+    config.middleware.delete Rails::Rack::Logger
+    config.middleware.delete ActionDispatch::DebugExceptions
+    config.middleware.delete ActionDispatch::ShowExceptions
+    config.middleware.delete WebConsole::Middleware
   end
 end
